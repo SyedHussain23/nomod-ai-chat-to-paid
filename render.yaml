@@ -17,8 +17,6 @@ services:
       - key: BASE_PAYMENT_URL
         value: https://pay.nomod.ai/pay
       - key: CORS_ORIGINS
-        value: https://nomod-ai.vercel.app,http://localhost:5173
-    disk:
-      name: nomod-ai-data
-      mountPath: /app/data
-      sizeGB: 1
+        value: https://nomod-ai-chat-to-paid.vercel.app,http://localhost:5173
+# NOTE: persistent disk is not available on Render's free plan.
+# The mock JSON store resets on restart — fine for demo, swap to Postgres for prod.

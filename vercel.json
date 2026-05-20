@@ -5,7 +5,7 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://nomod-ai-backend.onrender.com/api/$1" },
+    { "source": "/api/(.*)", "destination": "https://nomod-ai-chat-to-paid.onrender.com/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

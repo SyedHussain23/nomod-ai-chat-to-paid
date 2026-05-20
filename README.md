@@ -1,227 +1,259 @@
+<div align="center">
+
 # Nomod AI — Chat to Paid in Seconds
 
-> AI-native merchant operations assistant for [Nomod](https://nomod.com/en-ae) — turn a sentence like
-> *"Charge Ahmed 500 AED for AC repair"* into a payment link, a WhatsApp message, status tracking,
-> and an automated follow-up loop.
+**An AI-native merchant operations assistant for [Nomod](https://nomod.com/en-ae).**
+Type *"Charge Ahmed 500 AED for AC repair"* — get a payment link, a WhatsApp draft, lifecycle tracking, and automated follow-ups in one shot.
 
-This is a production-style MVP built as a Product Engineer interview project. It is intentionally
-focused on rapid MVP execution with scalable modular architecture and AI-native workflow design
-rather than overengineering.
+[![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![Claude](https://img.shields.io/badge/Claude-Anthropic-D97757?logo=anthropic&logoColor=white)](https://www.anthropic.com/)
+[![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/license-MIT-black)](LICENSE)
+
+> **AI-native, fintech-aware, operations-first.** Built end-to-end as a production-style MVP for the Nomod Product Engineer interview.
+
+</div>
 
 ---
 
-## 1. Problem Statement
+## 1. The Problem
 
-UAE SMB merchants — AC repair shops, salons, freelancers, home-services operators — lose hours every
-week to payment operations:
+UAE SMB merchants — AC technicians, salons, freelancers, home-services operators — run their business in WhatsApp. They also lose hours every week to **payment operations**:
 
-- Manually crafting WhatsApp invoices for each customer.
-- Forgetting to follow up on unpaid links.
-- Spotting frustrated customers too late, after refunds escalate.
-- Reconciling dozens of payment links from a mobile screen.
+- **Manual invoice drafting** — every quote, every link, every reminder is hand-typed on a phone.
+- **Forgotten follow-ups** — unpaid links sit untouched while cash flow tightens.
+- **Sentiment blind spots** — a frustrated customer is only spotted after the refund request.
+- **Reconciliation chaos** — dozens of links across WhatsApp chats with no central view.
 
-The merchant doesn't need another dashboard. They need an **operations agent** that understands
-intent, builds the artifacts, and chases the money.
+These merchants don't need another dashboard. They need an **operations agent** that understands intent, builds the artifacts, chases the money, and tells them when something needs human attention.
 
-## 2. Solution Overview
+## 2. Why This Matters For Nomod
 
-Nomod AI is a merchant-facing assistant. The merchant types in plain English (or Arabic-mixed
-English) — Claude extracts a structured payment intent, the backend mints a Nomod-style payment
-link, generates a professional WhatsApp message, and starts an automated lifecycle:
+Nomod already wins on the four primitives that matter to UAE SMBs: **payment links, merchant ops, conversational commerce, and mobile-first checkout**. The next unlock is AI-native workflow orchestration on top of those primitives.
 
-1. **Extraction** — Claude turns text into typed JSON (customer, amount, currency, urgency,
-   sentiment, escalation flag).
-2. **Link generation** — backend mints a Nomod-style short link (`pay.nomod.ai/pay/<token>`).
-3. **WhatsApp draft** — Claude writes a tone-appropriate message.
-4. **Lifecycle** — webhook simulator updates status; AI generates progressively firmer follow-ups.
-5. **Observability** — every event lands in a merchant activity feed and KPIs roll up to a dashboard.
+| Nomod's product | What this MVP adds |
+|---|---|
+| Payment links | Created from a single English sentence, no form-filling. |
+| Merchant ops | Auto-generated WhatsApp drafts, AI follow-ups, escalation flags. |
+| Conversational commerce | Natural-language → structured payment intent in one Claude call. |
+| Mobile-first SMB | One textbox replaces five fields. The agent does the rest. |
 
-## 3. Architecture
+The thesis: **the merchant types, the system operates.** Every operational artifact (link, message, status, follow-up, escalation) is generated and tracked by the agent.
+
+## 3. Solution Overview
+
+A merchant types a charge request in plain English. The system:
+
+1. **Extracts** structured intent — customer, amount, currency, service, urgency, sentiment, escalation flag.
+2. **Mints** a Nomod-style payment link.
+3. **Drafts** a tone-appropriate WhatsApp message.
+4. **Tracks** status (pending → paid / overdue / failed) with a webhook-simulator endpoint.
+5. **Escalates tone** automatically across follow-ups (gentle → firm → urgent).
+6. **Surfaces** every event in an operations dashboard with KPIs and a live activity feed.
+
+## 4. Product Workflow
+
+```
+Merchant types
+   "Charge Ahmed 500 AED for AC repair"
+            │
+            ▼
+   ┌──────────────────┐
+   │  Claude extract  │   ── structured JSON intent
+   └────────┬─────────┘
+            ▼
+   ┌──────────────────┐
+   │  Payment mint    │   ── pay.nomod.ai/pay/<token>
+   └────────┬─────────┘
+            ▼
+   ┌──────────────────┐
+   │  WhatsApp draft  │   ── tone-aware, brand-safe
+   └────────┬─────────┘
+            ▼
+   ┌──────────────────┐
+   │ Lifecycle + KPIs │   ── status, follow-ups, escalations
+   └──────────────────┘
+```
+
+See [`docs/architecture/workflow-diagram.md`](docs/architecture/workflow-diagram.md) for the full Mermaid sequence.
+
+## 5. AI Workflow Architecture
+
+The AI layer is intentionally small and orchestratable:
+
+- **`claude_client.py`** — one thin Anthropic wrapper with retry, JSON-block extraction, structured parsing, and graceful fallback. Returns `None` on exhaustion so callers can degrade safely instead of 500-ing.
+- **`extractor.py`** — natural-language → typed Pydantic `ExtractedRequest`. Strict JSON system prompt, Pydantic validation, regex fallback so the demo never breaks even without an API key.
+- **`followup.py`** — tone-aware reminders that escalate with `followup_count`:
+
+  | Reminder # | Tone |
+  |---|---|
+  | 1 | gentle nudge |
+  | 2 | firm but polite |
+  | 3+ | urgent, references escalation |
+
+- **Escalation + urgency** are first-class fields on every payment, surfaced in the UI as badges and on the dashboard as a KPI.
+- **Logging** — every AI call and every domain event flows through the activity feed, giving us a built-in audit trail.
+
+See [`docs/architecture/architecture-diagram.md`](docs/architecture/architecture-diagram.md).
+
+## 6. Technical Architecture
 
 ```
 ┌─────────────────────────┐         ┌────────────────────────────────────────┐
-│   React + TS + Tailwind │  HTTP   │           FastAPI (async)              │
-│  Assistant · Payments   │ ◀────▶  │  /api/ai  /api/payments  /api/dashboard │
+│   React 18 + TS + TW    │  HTTP   │           FastAPI (async)              │
+│  Assistant · Payments   │ ◀────▶  │  /api/ai  /api/payments  /api/dashboard│
 │  · Analytics dashboard  │         │                                        │
-└─────────────────────────┘         │   services/ ─ payment, analytics,      │
-                                    │              activity                  │
-                                    │   ai/       ─ claude_client,           │
-                                    │              extractor, followup       │
-                                    │   schemas/  ─ Pydantic v2 models       │
-                                    │   middleware/ logging + request-id     │
-                                    │   database/ ─ MockDB (PG-ready shape)  │
+└─────────────────────────┘         │  services/  payment · analytics ·      │
+                                    │             activity                   │
+                                    │  ai/        claude_client · extractor  │
+                                    │             · followup                 │
+                                    │  schemas/   Pydantic v2                │
+                                    │  middleware request-id + structured log│
+                                    │  database/  MockDB (Postgres-shaped)   │
                                     └──────────────────┬─────────────────────┘
                                                        │
                                               ┌────────▼────────┐
-                                              │  Claude API     │
-                                              │  (JSON-mode +   │
-                                              │   text drafts)  │
+                                              │  Anthropic API  │
+                                              │  Claude 4.x     │
                                               └─────────────────┘
 ```
 
-- **Backend** — FastAPI, async end-to-end, Pydantic v2 schemas, request-id logging middleware,
-  modular service layer cleanly separated from AI orchestration. The mock store is shaped exactly
-  like a Postgres schema (`payments`, `activity`, `followups`, `merchants`) so it ports to SQLModel
-  / SQLAlchemy in one swap.
-- **AI Layer** — One thin Anthropic client (`claude_client.py`) with retry, JSON-mode parsing, and
-  graceful fallback. Two orchestrators on top — `extractor.py` (intent extraction) and
-  `followup.py` (WhatsApp + reminders). Each has a heuristic fallback so the demo works even
-  without an API key.
-- **Frontend** — Vite + React 18 + TypeScript + Tailwind. Three views: **Assistant** (chat + live
-  feed), **Payments** (filterable card grid), **Analytics** (KPIs, urgency mix, activity).
-- **Webhook simulation** — `POST /api/payments/{id}/webhook/paid` mimics the provider callback that
-  will land in production.
+| Layer | Tech | Notes |
+|---|---|---|
+| Frontend | Vite, React 18, TypeScript, TailwindCSS, React Router | Dark fintech aesthetic, dense ops UI |
+| Backend | FastAPI, Pydantic v2, async end-to-end | Modular services, request-id logging |
+| AI | Anthropic SDK (`claude-opus-4-7`), JSON-mode + retry | Heuristic fallback for demo resilience |
+| Storage | JSON-backed `MockDB`, schema-identical to Postgres | One-swap migration to SQLModel |
+| Infra | Docker + docker-compose, nginx proxy | Render + Vercel deploy configs included |
 
-## 4. Features
+## 7. Screenshots
 
-**Core (implemented)**
-- AI extraction of customer, amount, currency, service, urgency, sentiment, escalation.
-- Nomod-style payment link minting.
-- AI-drafted WhatsApp message per payment.
-- Merchant dashboard — totals, collection rate, escalation count, urgency & category mix.
-- Priority detection (low / medium / high).
-- Sentiment + escalation detection (frustrated / refund risk).
-- Activity log of every operational event.
-- Payment status lifecycle (pending → paid / overdue / failed).
-- AI follow-up generation that escalates tone with each reminder (gentle → firm → urgent).
+> Drop PNGs into `docs/screenshots/` — names below are referenced in this README.
 
-**Bonus (implemented)**
-- Webhook simulator endpoint.
-- Retry-safe AI client with exponential backoff.
-- Graceful heuristic fallback when `ANTHROPIC_API_KEY` is unset — demo never breaks.
+| | |
+|---|---|
+| ![Assistant](docs/screenshots/merchant-chat.png) | ![Analytics](docs/screenshots/analytics.png) |
+| **Assistant** — chat to paid in seconds | **Analytics** — collection rate, escalations, urgency mix |
+| ![Payment flow](docs/screenshots/payment-flow.png) | ![Escalation alerts](docs/screenshots/escalation-alerts.png) |
+| **Payment flow** — link + WhatsApp + lifecycle | **Escalations** — frustration + refund risk surfaced early |
+
+Full screenshot list: `dashboard.png`, `merchant-chat.png`, `analytics.png`, `payment-flow.png`, `escalation-alerts.png`.
+
+## 8. Features
+
+**Core**
+- ⚡ **One-sentence payments** — Claude turns free text into a typed payment intent.
+- 🔗 **Nomod-style links** — minted instantly, ready to send.
+- 💬 **WhatsApp drafts** — tone-aware, professional, brand-safe.
+- 📊 **Ops dashboard** — totals, collection rate, escalations, urgency & category breakdown.
+- 🚨 **Urgency + sentiment detection** — escalations flagged before the refund.
+- 🔁 **AI follow-ups** — tone escalates by reminder count.
+- 📜 **Activity feed** — every operational event, audit-trail style.
+- 🎯 **Status lifecycle** — `pending` → `paid` / `overdue` / `failed` with webhook simulator.
+
+**Bonus**
+- Retry-safe Anthropic client with structured-JSON parsing.
+- Heuristic fallback so the demo runs without an API key.
 - Request-id logging middleware.
-- Docker + docker-compose for one-command boot.
-- Mock DB shaped for Postgres migration.
+- Docker + docker-compose one-command boot.
+- Postgres-shaped mock DB for trivial migration.
+- Vercel + Render deployment configs.
 
-## 5. AI Workflow Design
+## 9. Scalability Roadmap
 
-**Extraction prompt** (`backend/app/ai/extractor.py`) returns strict JSON. We use a JSON-block
-regex extractor on the response, validate with Pydantic, and on any parse/validation failure fall
-back to a deterministic regex heuristic so the merchant never sees a broken request.
+| Area | Today (MVP) | Next |
+|---|---|---|
+| **Payments** | Mock link mint | Real Nomod link API, idempotent mint, ledger reconciliation |
+| **Webhooks** | `POST /webhook/paid` simulator | Provider signatures, retries, DLQ |
+| **Queues** | In-process | Arq / Celery on Redis, scheduled follow-up cadence |
+| **Events** | JSON store activity log | Event-driven (Kafka / SQS), per-event handlers |
+| **Observability** | Request-id logging | OpenTelemetry traces, Grafana dashboards, AI-call cost telemetry |
+| **Fraud** | None | Velocity + anomaly scoring before mint, sentiment-weighted risk |
+| **Agents** | Two AI calls (extract, draft) | Supervised multi-agent — `extractor`, `dunning`, `recon`, `risk` |
+| **Languages** | English | Arabic, mixed-code (UAE-style), per-merchant locale |
+| **Auth** | `merchant_id` threaded end-to-end | JWT + RBAC, merchant org model |
 
-**Tone-aware follow-up** (`backend/app/ai/followup.py`) reads `followup_count` and asks Claude to
-shift tone:
+## 10. Engineering Philosophy
 
-| Followup # | Tone   |
-|------------|--------|
-| 1          | gentle |
-| 2          | firm   |
-| 3+         | urgent (mentions escalation) |
+> I intentionally focused on **rapid MVP execution with scalable modular architecture and AI-native workflow design rather than overengineering.**
 
-**Retry & safety** — `ClaudeClient.json_call` retries with backoff, logs failures, and returns
-`None` on exhaustion so the calling service can fall back rather than 500.
+Every layer is the smallest credible version of the production system:
 
-## 6. Scalability Roadmap
+- The mock DB matches the Postgres schema, so the migration is mechanical.
+- The Claude client is one file with retry, JSON parsing, and a fallback — small enough to read in 60 seconds, structured enough to extend.
+- Services are pure functions over the store — trivial to unit-test, trivial to swap to real Nomod APIs.
+- The UI prioritises **operational density** (cards, badges, activity feed) over decorative chrome. It looks like fintech ops software, not a chatbot demo.
 
-- **Real payment APIs** — replace `BASE_PAYMENT_URL` mint with Nomod's link API; webhook handler
-  already wired.
-- **Async queues** — move follow-up scheduling onto Celery / Arq with Redis; today's stub keeps
-  the shape.
-- **Observability** — wire OpenTelemetry on the FastAPI app; the request-id middleware is the
-  hook point.
-- **Multi-agent workflows** — split `extractor`, `dunning-agent`, `escalation-agent`, and
-  `recon-agent` into supervised tools behind a router.
-- **RAG-ready** — merchant history + customer history become retrieval sources for personalized
-  follow-up drafts.
-- **Fraud detection** — score every extraction (amount anomaly, velocity, sentiment) before mint.
-- **Multilingual** — Claude already handles Arabic; add `locale` to the schema and template
-  WhatsApp messages.
-- **Auth** — JWT-ready structure; `merchant_id` is already threaded end-to-end.
+The goal: something an AI-native startup engineer would prototype on day one, ship to a real merchant on day three, and harden into production by week two.
 
-## 7. Local Setup
+## 11. Local Setup
 
-### Option A — Docker (recommended)
+### Docker (recommended)
 
 ```bash
-cp .env.example .env       # add ANTHROPIC_API_KEY (optional — fallback works without)
+cp .env.example .env       # add ANTHROPIC_API_KEY (optional — fallback works)
 docker compose up --build
 # Frontend → http://localhost:3000
 # Backend  → http://localhost:8000/docs
 ```
 
-### Option B — Native dev
+### Native dev
 
 ```bash
-# Backend
-cd backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env       # add ANTHROPIC_API_KEY
-uvicorn app.main:app --reload --port 8000
-
-# Frontend (separate shell)
-cd frontend
-npm install
-npm run dev                # http://localhost:5173
+./scripts/start.sh
+# or, manually:
+cd backend && python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt && uvicorn app.main:app --reload --port 8000
+cd ../frontend && npm install && npm run dev
 ```
 
-Or one-shot: `./scripts/start.sh`.
+## 12. Deployment
 
-## 8. API Documentation
+- **Frontend → Vercel** — `vercel.json` included. Root = `frontend/`, output = `dist/`.
+- **Backend → Render** — `render.yaml` blueprint included. One-click from the dashboard.
+- Full step-by-step: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
 
-Full OpenAPI: **http://localhost:8000/docs**
+## 13. API Docs
+
+OpenAPI live at `/docs` once the backend is running.
 
 | Method | Path | Purpose |
-|--------|------|---------|
-| POST   | `/api/ai/chat` | NL request → extraction + payment + WhatsApp msg |
-| GET    | `/api/payments` | List all payments for a merchant |
-| GET    | `/api/payments/{id}` | Single payment |
-| PATCH  | `/api/payments/{id}/status` | Update status (`pending`/`paid`/`overdue`/`failed`) |
-| POST   | `/api/payments/{id}/followup` | Generate AI follow-up reminder |
-| POST   | `/api/payments/{id}/webhook/paid` | Simulated provider webhook |
-| GET    | `/api/dashboard/metrics` | KPIs, volume, breakdowns |
-| GET    | `/api/dashboard/activity` | Recent activity feed |
+|---|---|---|
+| `POST` | `/api/ai/chat` | NL request → extraction + payment + WhatsApp draft |
+| `GET` | `/api/payments` | List merchant payments |
+| `GET` | `/api/payments/{id}` | Single payment |
+| `PATCH` | `/api/payments/{id}/status` | Update status |
+| `POST` | `/api/payments/{id}/followup` | Generate AI follow-up |
+| `POST` | `/api/payments/{id}/webhook/paid` | Simulated provider webhook |
+| `GET` | `/api/dashboard/metrics` | KPIs, volume, breakdowns |
+| `GET` | `/api/dashboard/activity` | Recent activity feed |
+| `GET` | `/health` | Liveness probe |
 
-### Sample requests
+### Sample curl
 
 ```bash
-# Create a payment from natural language
 curl -X POST http://localhost:8000/api/ai/chat \
   -H 'Content-Type: application/json' \
   -d '{"message":"Charge Ahmed 500 AED for AC repair, urgent"}'
-
-# Simulate payment received
-curl -X POST http://localhost:8000/api/payments/pay_abc123/webhook/paid
-
-# Trigger AI follow-up
-curl -X POST http://localhost:8000/api/payments/pay_abc123/followup
 ```
 
-### Sample merchant interactions
+## 14. Future Improvements
 
-| Merchant types | AI extracts |
-|---|---|
-| "Charge Ahmed 500 AED for AC repair" | customer=Ahmed, amount=500, urgency=medium, category=repair |
-| "Bill Fatima 1250 for monthly cleaning, urgent" | urgency=high, category=service |
-| "Invoice Khalid 3200 — he's been asking for a refund" | sentiment=frustrated, escalation_required=true |
-| "Send Layla 75 AED link for delivery" | category=service, amount=75 |
+- Native Arabic + mixed-code (English/Arabic) prompt + UI locale.
+- Multi-agent supervisor: `extractor → risk → dunning → recon`.
+- Per-merchant memory (RAG over past invoices, customer tone history).
+- Apple Pay / Google Pay / Tabby / Tamara handoff inside the link mint.
+- Slack / WhatsApp Business webhook ingress so the merchant never leaves their chat.
+- Realtime collaboration when a merchant has multiple ops staff.
 
-## 9. Screenshots
+---
 
-> Spin up locally (`docker compose up`) and the Vite/React app at `http://localhost:3000` shows:
-> Assistant (chat + activity), Payments (filterable cards), Analytics (KPIs + breakdowns).
+<div align="center">
 
-## 10. Deployment
+**Built for the Nomod Product Engineer (AI-Native) interview.**
+[Architecture diagrams](docs/architecture/) · [Deployment guide](docs/DEPLOYMENT.md) · [Demo script](docs/DEMO_SCRIPT.md)
 
-- **Frontend → Vercel** — root `frontend/`, build `npm run build`, output `dist`, env
-  `VITE_API_BASE=https://<api>.onrender.com/api`.
-- **Backend → Render / Railway** — root `backend/`, start
-  `uvicorn app.main:app --host 0.0.0.0 --port $PORT`, env `ANTHROPIC_API_KEY`, mount a small
-  persistent disk on `/app/data` if you want the JSON store to survive deploys (or swap to
-  Postgres before shipping).
-
-## Product Engineering Philosophy
-
-I intentionally focused on **rapid MVP execution with scalable modular architecture and AI-native
-workflow design rather than overengineering.** Every piece is the smallest credible version of
-the production thing:
-
-- The mock DB is shaped like Postgres so the migration is mechanical.
-- The Claude client is one file with retry, JSON parsing, and a fallback — small enough to read in
-  60 seconds, structured enough to extend.
-- Services are pure functions over the store, so they're trivial to test or swap to real Nomod APIs.
-- The UI prioritises operational density (cards, badges, activity feed) over decorative chrome —
-  it feels like fintech ops software, not a chatbot demo.
-
-The goal: something an AI-native startup engineer would prototype in a high-velocity fintech team
-on day one, ship to a real merchant on day three, and harden into production by week two.
+</div>

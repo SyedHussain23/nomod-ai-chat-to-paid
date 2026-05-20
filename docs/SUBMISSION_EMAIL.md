@@ -20,10 +20,10 @@ UAE SMB merchants already run on WhatsApp and payment links — Nomod's primitiv
 - **Production-shaped architecture** — FastAPI (async), Pydantic v2, modular services, request-id logging, Postgres-shaped mock DB, Docker + docker-compose, Vercel + Render configs.
 
 **Links**
-- Live frontend: `https://nomod-ai.vercel.app`
-- Live API + docs: `https://nomod-ai-backend.onrender.com/docs`
-- Repo: `https://github.com/<you>/nomod-ai-chat-to-paid`
-- 75-second Loom: `https://www.loom.com/share/<id>`
+- Live frontend: https://nomod-ai-chat-to-paid.vercel.app
+- Live API + docs: https://nomod-ai-chat-to-paid.onrender.com/docs
+- Repo: https://github.com/SyedHussain23/nomod-ai-chat-to-paid
+- 75-second Loom: (recording — link to follow)
 
 **Engineering philosophy**
 I intentionally focused on **rapid MVP execution with scalable modular architecture and AI-native workflow design rather than overengineering.** Every layer is the smallest credible version of the production thing: the mock DB has the production schema, the AI client is one file with retry + fallback, services are pure functions over the store. The system is built to be swapped, not rewritten.
@@ -32,5 +32,3 @@ Happy to discuss whenever works for you.
 
 Best,
 Syed Hussain Abdul Hakeem
-
----
